@@ -1,0 +1,37 @@
+# Virtual environments
+Cloud_ML/
+venv/
+.env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Data files (too large for git)
+data/raw/
+data/cleaned/
+data/processed/
+
+# Models (too large for git)
+models/*.pkl
+models/*.h5
+models/*.joblib
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MLflow
+mlruns/
+
+# Misc
+*.log
+.env
