@@ -38,3 +38,4 @@ for f in files[:10]:
           f"Missing: {temp.isnull().sum().sum()}")
 
 print("\n✅ Data verification complete!")
+print("Completed")
