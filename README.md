@@ -27,3 +27,4 @@ cloud-workload-prediction/
 ```bash
 source Cloud_ML/bin/activate
 pip install -r requirements.txt
+```
