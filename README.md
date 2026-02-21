@@ -28,4 +28,3 @@ cloud-workload-prediction/
 source Cloud_ML/bin/activate
 pip install -r requirements.txt
 ```
-
