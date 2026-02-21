@@ -11,7 +11,7 @@ dist/
 build/
 
 # Data files (too large for git)
-data/raw/
+#data/raw/
 data/cleaned/
 data/processed/
 
