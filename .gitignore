@@ -12,8 +12,8 @@ build/
 
 # Data files (too large for git)
 #data/raw/
-data/cleaned/
-data/processed/
+#data/cleaned/
+#data/processed/
 
 # Models (too large for git)
 models/*.pkl
