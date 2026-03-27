@@ -5,7 +5,7 @@ seaborn
 scikit-learn
 xgboost
 lightgbm
-tensorflow
+torch
 prophet
 statsmodels
 fastapi
