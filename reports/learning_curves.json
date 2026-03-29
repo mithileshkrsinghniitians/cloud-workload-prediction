@@ -1,0 +1,57 @@
+{
+  "description": "XGBoost learning curves \u2014 trained on varying fractions of training data",
+  "fixed_test_set_size": 20109,
+  "naive_baseline": {
+    "MAE": 4.1691,
+    "RMSE": 15.4807,
+    "R2": 0.8132,
+    "sMAPE": 12.56
+  },
+  "results": [
+    {
+      "fraction": 0.2,
+      "train_rows": 7701,
+      "train_time_sec": 0.27,
+      "MAE": 6.3589,
+      "RMSE": 13.7987,
+      "R2": 0.8516,
+      "sMAPE": 31.24
+    },
+    {
+      "fraction": 0.4,
+      "train_rows": 15402,
+      "train_time_sec": 0.27,
+      "MAE": 6.5965,
+      "RMSE": 13.9504,
+      "R2": 0.8483,
+      "sMAPE": 31.52
+    },
+    {
+      "fraction": 0.6,
+      "train_rows": 23104,
+      "train_time_sec": 0.26,
+      "MAE": 6.5326,
+      "RMSE": 13.7267,
+      "R2": 0.8531,
+      "sMAPE": 31.65
+    },
+    {
+      "fraction": 0.8,
+      "train_rows": 30805,
+      "train_time_sec": 0.27,
+      "MAE": 6.6343,
+      "RMSE": 13.6692,
+      "R2": 0.8544,
+      "sMAPE": 31.99
+    },
+    {
+      "fraction": 1.0,
+      "train_rows": 38507,
+      "train_time_sec": 0.29,
+      "MAE": 6.1305,
+      "RMSE": 13.6658,
+      "R2": 0.8544,
+      "sMAPE": 31.2
+    }
+  ]
+}

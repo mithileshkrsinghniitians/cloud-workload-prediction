@@ -1,0 +1,71 @@
+{
+  "config": {
+    "scale_up_threshold_pct": 70.0,
+    "scale_down_threshold_pct": 30.0,
+    "sla_violation_threshold_pct": 85.0,
+    "min_instances": 1,
+    "max_instances": 4,
+    "cooldown_steps": 3,
+    "cooldown_minutes": 15,
+    "forecast_horizon_steps": 6,
+    "forecast_horizon_minutes": 30
+  },
+  "single_vm_simulation": {
+    "vm_id": 216,
+    "n_timesteps": 2013,
+    "no_scaling": {
+      "label": "No Scaling (1 instance)",
+      "n_scale_up": 0,
+      "n_scale_down": 0,
+      "n_total_events": 0,
+      "n_sla_violations": 1550,
+      "sla_violation_rate_pct": 77.0,
+      "mean_instances": 1.0,
+      "total_instance_minutes": 10065
+    },
+    "reactive": {
+      "label": "Reactive (current CPU)",
+      "n_scale_up": 19,
+      "n_scale_down": 16,
+      "n_total_events": 35,
+      "n_sla_violations": 5,
+      "sla_violation_rate_pct": 0.25,
+      "mean_instances": 3.461,
+      "total_instance_minutes": 34835
+    },
+    "predictive": {
+      "label": "Predictive (XGBoost forecast)",
+      "n_scale_up": 15,
+      "n_scale_down": 12,
+      "n_total_events": 27,
+      "n_sla_violations": 9,
+      "sla_violation_rate_pct": 0.45,
+      "mean_instances": 3.415,
+      "total_instance_minutes": 34375
+    }
+  },
+  "all_vms_simulation": {
+    "n_timesteps": 20109,
+    "reactive": {
+      "label": "Reactive (all VMs)",
+      "n_scale_up": 188,
+      "n_scale_down": 185,
+      "n_total_events": 373,
+      "n_sla_violations": 54,
+      "sla_violation_rate_pct": 0.27,
+      "mean_instances": 3.488,
+      "total_instance_minutes": 350680
+    },
+    "predictive": {
+      "label": "Predictive (all VMs)",
+      "n_scale_up": 151,
+      "n_scale_down": 148,
+      "n_total_events": 299,
+      "n_sla_violations": 100,
+      "sla_violation_rate_pct": 0.5,
+      "mean_instances": 3.439,
+      "total_instance_minutes": 345785
+    }
+  },
+  "key_finding": "Predictive scaling reduced SLA violations by -4 (-0.2% points) compared to reactive scaling on VM 216."
+}

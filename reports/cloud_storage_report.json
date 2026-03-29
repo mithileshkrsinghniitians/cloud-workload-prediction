@@ -1,0 +1,14 @@
+{
+  "bucket": "cloud-workload-prediction-nci",
+  "region": "eu-west-1",
+  "prefix": "bitbrains/",
+  "files_uploaded": 45,
+  "files_skipped": 0,
+  "total_objects_in_bucket": 45,
+  "total_size_bytes": 67779842,
+  "total_size_human": "64.6 MB",
+  "s3_uri": "s3://cloud-workload-prediction-nci/bitbrains/",
+  "cloud_services_used": [
+    "Amazon S3 (Simple Storage Service) \u2014 data, models, reports storage"
+  ]
+}

@@ -1,0 +1,64 @@
+# Cloud Workload Prediction — Docker Compose
+# ============================================
+# Runs the full stack locally (or on any cloud VM):
+#   - FastAPI prediction API  → http://localhost:8000
+#   - Streamlit dashboard     → http://localhost:8501
+#
+# Usage:
+#   docker-compose up --build        # build and start both services
+#   docker-compose up -d             # run in background
+#   docker-compose down              # stop and remove containers
+#
+# AWS S3 (optional):
+#   Set S3_BUCKET_NAME and AWS credentials as environment variables
+#   before running, or fill in the .env section below.
+
+version: "3.9"
+
+services:
+
+  # ── FastAPI Prediction API ──────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: cwp_api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount models and reports so API can read trained artifacts
+      - ./models:/app/models:ro
+      - ./reports:/app/reports:ro
+      - ./data:/app/data:ro
+    environment:
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-cloud-workload-prediction-nci}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-eu-west-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── Streamlit Dashboard ─────────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: cwp_dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      # Mount all data, models and reports for the dashboard to read
+      - ./data:/app/data:ro
+      - ./models:/app/models:ro
+      - ./reports:/app/reports:ro
+    environment:
+      - API_URL=http://api:8000
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-cloud-workload-prediction-nci}
+    depends_on:
+      - api
+    restart: unless-stopped

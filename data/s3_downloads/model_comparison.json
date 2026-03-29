@@ -1,0 +1,31 @@
+{
+  "test_period": "2013-08-26 to 2013-09-02",
+  "forecast_horizon_steps": 6,
+  "forecast_horizon_minutes": 30,
+  "models": [
+    {
+      "Model": "XGBoost",
+      "MAE": 6.14,
+      "RMSE": 13.69,
+      "R2": 0.8543,
+      "sMAPE": 31.28
+    },
+    {
+      "Model": "LSTM",
+      "MAE": 7.08,
+      "RMSE": 14.58,
+      "R2": 0.8309,
+      "sMAPE": 27.52
+    },
+    {
+      "Model": "Prophet",
+      "MAE": 81.31,
+      "RMSE": 88.95,
+      "R2": -5.079,
+      "sMAPE": 200.0
+    }
+  ],
+  "best_model_mae": "XGBoost",
+  "best_model_rmse": "XGBoost",
+  "best_model_r2": "XGBoost"
+}
