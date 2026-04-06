@@ -10,7 +10,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 warnings.filterwarnings("ignore")   # suppress Prophet/Stan output
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_PATH   = os.path.join(PROJECT_ROOT, "data", "processed", "combined_features.csv")
 MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
@@ -25,7 +25,7 @@ print("=" * 60)
 print("PHASE 6c — Prophet Baseline Training")
 print("=" * 60)
 
-# ── 1. Load & Same Split as XGBoost / LSTM ────────────────────────────────────
+# 1. Load & Same Split as XGBoost / LSTM:
 df = pd.read_csv(INPUT_PATH, parse_dates=["datetime"])
 df = df.sort_values(["vm_id", "datetime"]).reset_index(drop=True)
 
@@ -37,7 +37,7 @@ test_df    = busy_df[busy_df["datetime"] >= test_start]
 
 print(f"\n[1] Train: {len(train_df):,} rows  |  Test: {len(test_df):,} rows")
 
-# ── 2. Prophet Strategy ───────────────────────────────────────────────────────
+# 2. Prophet Strategy:
 # Prophet is a univariate model — fit one model per VM, forecast 6 steps,
 # align with the test set target (CPU 30 min ahead).
 # We collect all predictions across VMs then compute aggregate metrics.
@@ -61,7 +61,7 @@ for vm_id in sorted(vm_ids):
         print(f"    {vm_id:>6}  skipped (insufficient data)")
         continue
 
-    # Prophet requires columns named 'ds' and 'y'
+    # Prophet requires columns named 'ds' and 'y':
     vm_train_p = vm_train.rename(columns={"datetime": "ds", "CPU usage [%]": "y"})
 
     model = Prophet(
@@ -82,10 +82,10 @@ for vm_id in sorted(vm_ids):
     forecast     = model.predict(future_df)
     y_pred_vm    = np.clip(forecast["yhat"].values, 0, 100)
 
-    # True target: CPU usage at each test timestamp (same as other models)
+    # True target: CPU usage at each test timestamp (same as other models):
     y_true_vm = vm_test["CPU usage [%]"].values
 
-    # Align lengths (Prophet predicts at same timestamps as test)
+    # Align lengths (Prophet predicts at same timestamps as test):
     n = min(len(y_true_vm), len(y_pred_vm))
     y_true_vm = y_true_vm[:n]
     y_pred_vm = y_pred_vm[:n]
@@ -98,7 +98,7 @@ for vm_id in sorted(vm_ids):
 
     print(f"    {vm_id:>6}  {len(vm_train):>12,}  {len(vm_test):>10,}  {vm_mae:>8.2f}%")
 
-# ── 3. Aggregate Metrics ──────────────────────────────────────────────────────
+# 3. Aggregate Metrics:
 y_true = np.array(all_true)
 y_pred = np.array(all_pred)
 
@@ -114,12 +114,12 @@ print(f"    RMSE  : {rmse:.4f} %")
 print(f"    R²    : {r2:.4f}")
 print(f"    sMAPE : {smape:.2f}%")
 
-# ── 4. Per-VM MAE Table ───────────────────────────────────────────────────────
+# 4. Per-VM MAE Table:
 print(f"\n[4] Per-VM MAE:")
 vm_mae_df = pd.DataFrame(vm_mae_list).sort_values("mae")
 print(vm_mae_df.to_string(index=False))
 
-# ── 5. Forecast Components Plot (one VM) ──────────────────────────────────────
+# 5. Forecast Components Plot (one VM):
 sample_vm = sorted(vm_ids)[0]
 sample_model = models[sample_vm]
 vm_train_p = train_df[train_df["vm_id"] == sample_vm][["datetime", "CPU usage [%]"]].rename(
@@ -142,7 +142,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "12_prophet_components.png"))
 plt.close()
 print("[6] Saved: 12_prophet_components.png")
 
-# ── 6. Actual vs Predicted ────────────────────────────────────────────────────
+# 6. Actual vs Predicted:
 plot_n = min(500, len(y_true))
 fig, ax = plt.subplots(figsize=(14, 5))
 ax.plot(range(plot_n), y_true[:plot_n], label="Actual",           color="steelblue",  linewidth=1)
@@ -156,7 +156,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "13_prophet_actual_vs_predicted.png"))
 plt.close()
 print("[7] Saved: 13_prophet_actual_vs_predicted.png")
 
-# ── 7. Save Models & Metrics ──────────────────────────────────────────────────
+# 7. Save Models & Metrics:
 joblib.dump(models, os.path.join(MODELS_DIR, "prophet_models.pkl"))
 print("[8] Models saved → models/prophet_models.pkl")
 

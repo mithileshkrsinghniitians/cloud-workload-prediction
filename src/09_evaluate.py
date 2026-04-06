@@ -19,7 +19,7 @@ import torch.nn as nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.preprocessing import MinMaxScaler
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_PATH   = os.path.join(PROJECT_ROOT, "data", "processed", "combined_features.csv")
 MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
@@ -63,7 +63,7 @@ def sanitize_col(name):
 # Inference on CPU is fast enough for evaluation (~20k samples).
 DEVICE = torch.device("cpu")
 
-# Load XGBoost model early (before sklearn.preprocessing is used) to avoid segfault
+# Load XGBoost model early (before sklearn.preprocessing is used) to avoid segfault:
 _xgb_model_early = joblib.load(os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "xgboost_model.pkl"
 ))
@@ -72,7 +72,7 @@ print("=" * 60)
 print("PHASE 7 — Model Evaluation & Comparison")
 print("=" * 60)
 
-# ── 1. Load Data & Same Split ─────────────────────────────────────────────────
+# 1. Load Data & Same Split:
 df = pd.read_csv(INPUT_PATH, parse_dates=["datetime"])
 df = df.sort_values(["vm_id", "datetime"]).reset_index(drop=True)
 
@@ -85,7 +85,7 @@ test_df    = busy_df[busy_df["datetime"] >= test_start].reset_index(drop=True)
 print(f"\n[1] Test set: {len(test_df):,} rows  "
       f"({test_start.date()} → {busy_end.date()})")
 
-# ── 2. XGBoost Predictions ────────────────────────────────────────────────────
+# 2. XGBoost Predictions:
 xgb_model = _xgb_model_early   # already loaded before sklearn to avoid segfault
 
 test_with_target = test_df.copy()
@@ -101,7 +101,7 @@ y_test_xgb = test_with_target["target"].values
 xgb_pred = np.clip(xgb_model.predict(X_test_xgb), 0, 100)
 print(f"[2] XGBoost predictions: {len(xgb_pred):,} samples")
 
-# ── 3. LSTM Predictions — load from file saved during training ────────────────
+# 3. LSTM Predictions — load from file saved during training:
 # Avoids MPS/CPU numerical divergence: predictions were saved by 07_train_lstm.py
 lstm_preds_df = pd.read_csv(os.path.join(MODELS_DIR, "lstm_test_predictions.csv"))
 lstm_pred   = lstm_preds_df["y_pred"].values
@@ -109,12 +109,12 @@ y_test_lstm = lstm_preds_df["y_true"].values
 vm_ids = df["vm_id"].unique()
 print(f"[3] LSTM predictions loaded from file: {len(lstm_pred):,} samples")
 
-# ── 4. Prophet Predictions ────────────────────────────────────────────────────
+# 4. Prophet Predictions:
 prophet_models = joblib.load(os.path.join(MODELS_DIR, "prophet_models.pkl"))
 
 prophet_pred_list, prophet_true_list = [], []
 for vm_id in sorted(vm_ids):
-    # Prophet model keys are np.int64 — normalise lookup
+    # Prophet model keys are np.int64 — normalize lookup:
     key = next((k for k in prophet_models if int(k) == int(vm_id)), None)
     if key is None:
         continue
@@ -131,7 +131,7 @@ prophet_pred = np.array(prophet_pred_list)
 y_test_prophet = np.array(prophet_true_list)
 print(f"[4] Prophet predictions: {len(prophet_pred):,} samples")
 
-# ── 5. Compute All Metrics ────────────────────────────────────────────────────
+# 5. Compute All Metrics:
 def compute_metrics(y_true, y_pred, name):
     mae   = mean_absolute_error(y_true, y_pred)
     rmse  = np.sqrt(mean_squared_error(y_true, y_pred))
@@ -151,7 +151,7 @@ results_df = pd.DataFrame(results).set_index("Model")
 print("\n[5] Model Comparison:")
 print(results_df.to_string())
 
-# ── 6. Comparison Bar Chart ───────────────────────────────────────────────────
+# 6. Comparison Bar Chart:
 metrics_to_plot = ["MAE", "RMSE", "sMAPE"]
 colors = ["steelblue", "darkorange", "seagreen"]
 models_list = ["XGBoost", "LSTM", "Prophet"]
@@ -172,7 +172,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "14_model_comparison_bars.png"))
 plt.close()
 print("[6] Saved: 14_model_comparison_bars.png")
 
-# ── 7. R² Comparison ─────────────────────────────────────────────────────────
+# 7. R² Comparison:
 fig, ax = plt.subplots(figsize=(7, 4))
 r2_vals = [results_df.loc[m, "R2"] for m in models_list]
 bars = ax.bar(models_list, r2_vals, color=colors, width=0.5, edgecolor="white")
@@ -189,7 +189,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "15_model_comparison_r2.png"))
 plt.close()
 print("[7] Saved: 15_model_comparison_r2.png")
 
-# ── 8. Residual Distributions ─────────────────────────────────────────────────
+# 8. Residual Distributions:
 fig, axes = plt.subplots(1, 3, figsize=(15, 4), sharey=False)
 for ax, (name, y_true, y_pred_vals) in zip(axes, [
     ("XGBoost", y_test_xgb,    xgb_pred),
@@ -211,7 +211,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "16_residual_distributions.png"))
 plt.close()
 print("[8] Saved: 16_residual_distributions.png")
 
-# ── 9. Side-by-Side Actual vs Predicted (XGBoost & LSTM) ─────────────────────
+# 9. Side-by-Side Actual vs Predicted (XGBoost & LSTM):
 n_plot = 288   # 24 hours worth (288 × 5 min)
 fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
 for ax, (name, y_true, y_pred_vals, color) in zip(axes, [
@@ -232,7 +232,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "17_xgb_lstm_vs_actual.png"))
 plt.close()
 print("[9] Saved: 17_xgb_lstm_vs_actual.png")
 
-# ── 10. Scatter: Predicted vs Actual ─────────────────────────────────────────
+# 10. Scatter: Predicted vs Actual:
 fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 for ax, (name, y_true, y_pred_vals, color) in zip(axes, [
     ("XGBoost", y_test_xgb,  xgb_pred,  "steelblue"),
@@ -253,7 +253,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "18_scatter_pred_vs_actual.png"))
 plt.close()
 print("[10] Saved: 18_scatter_pred_vs_actual.png")
 
-# ── 11. Save Summary Report ───────────────────────────────────────────────────
+# 11. Save Summary Report:
 report_path = os.path.join(REPORTS_DIR, "model_comparison.json")
 report = {
     "test_period": f"{test_start.date()} to {busy_end.date()}",
@@ -268,7 +268,7 @@ with open(report_path, "w") as f:
     json.dump(report, f, indent=2)
 print("[11] Saved: reports/model_comparison.json")
 
-# ── 12. Final Summary ─────────────────────────────────────────────────────────
+# 12. Final Summary:
 print("\n" + "=" * 60)
 print("PHASE 7 COMPLETE — Final Model Comparison")
 print("=" * 60)

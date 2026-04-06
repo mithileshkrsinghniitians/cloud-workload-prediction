@@ -16,7 +16,7 @@ matplotlib.use("Agg")
 import warnings
 warnings.filterwarnings("ignore")
 
-# ── Page config ────────────────────────────────────────────────────────────────
+# Page Config:
 st.set_page_config(
     page_title="Cloud Workload Prediction",
     page_icon="☁️",
@@ -24,14 +24,14 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 ROOT       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR   = os.path.join(ROOT, "data", "processed")
 MODELS_DIR = os.path.join(ROOT, "models")
 REPORTS    = os.path.join(ROOT, "reports")
 FIGURES    = os.path.join(REPORTS, "figures")
 
-# ── Cache helpers ──────────────────────────────────────────────────────────────
+# Cache Helpers:
 @st.cache_data
 def load_features():
     df = pd.read_csv(os.path.join(DATA_DIR, "combined_features.csv"),
@@ -68,7 +68,7 @@ def fig_path(name):
     return os.path.join(FIGURES, name)
 
 def show_fig(name, caption=None):
-    """Display a figure if it exists, otherwise show an info message."""
+    # Display a figure if it exists, otherwise show an info message.
     p = fig_path(name)
     if os.path.exists(p):
         st.image(p, caption=caption, use_container_width=True)
@@ -96,7 +96,7 @@ XGB_FEATURE_COLS = [
 def sanitize(name):
     return name.replace("[", "(").replace("]", ")").replace("<", "_")
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# Sidebar:
 st.sidebar.title("☁️ Cloud Workload Prediction")
 st.sidebar.markdown("**Bitbrains fastStorage Dataset**  \n1,250 VMs · 5-min intervals · 29 days")
 st.sidebar.divider()
@@ -120,9 +120,7 @@ st.sidebar.divider()
 st.sidebar.caption("Cloud ML Project · NCI · 2026")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 1 — Overview
-# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 1 — Overview:
 if page == "🏠 Overview":
     st.title("☁️ Cloud Workload Prediction Dashboard")
     st.markdown(
@@ -182,9 +180,8 @@ if page == "🏠 Overview":
         )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 2 — EDA
-# ══════════════════════════════════════════════════════════════════════════════
+
+# PAGE 2 — EDA:
 elif page == "📊 EDA":
     st.title("📊 Exploratory Data Analysis")
 
@@ -242,9 +239,7 @@ elif page == "📊 EDA":
     st.dataframe(vm_stats, use_container_width=True)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 3 — Model Results
-# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 3 — Model Results:
 elif page == "🤖 Model Results":
     st.title("🤖 Model Training Results")
 
@@ -300,9 +295,8 @@ elif page == "🤖 Model Results":
     show_fig("18_scatter_pred_vs_actual.png")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 4 — Learning Curves
-# ══════════════════════════════════════════════════════════════════════════════
+
+# PAGE 4 — Learning Curves:
 elif page == "📈 Learning Curves":
     st.title("📈 Learning Curves — XGBoost")
     st.markdown(
@@ -322,7 +316,7 @@ elif page == "📈 Learning Curves":
         results_df = pd.DataFrame(lc["results"])
         baseline   = lc["naive_baseline"]
 
-        # Add a baseline row for display
+        # Add a baseline row for display:
         display_df = results_df[["fraction", "train_rows", "MAE", "RMSE", "R2", "sMAPE", "train_time_sec"]].copy()
         display_df["fraction"] = display_df["fraction"].apply(lambda x: f"{int(x*100)}%")
         display_df.columns     = ["Data Used", "Train Rows", "MAE (%)", "RMSE (%)", "R²", "sMAPE (%)", "Train Time (s)"]
@@ -336,7 +330,7 @@ elif page == "📈 Learning Curves":
             use_container_width=True,
         )
 
-        # Baseline comparison
+        # Baseline comparison:
         c1, c2, c3 = st.columns(3)
         c1.metric("Naive Baseline MAE",  f"{baseline['MAE']:.2f}%", help="Predict current CPU as 30-min forecast")
         c2.metric("Naive Baseline RMSE", f"{baseline['RMSE']:.2f}%")
@@ -364,9 +358,7 @@ elif page == "📈 Learning Curves":
     """)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 5 — Error Analysis
-# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 5 — Error Analysis:
 elif page == "🔍 Error Analysis":
     st.title("🔍 Comprehensive Error Analysis")
     st.markdown(
@@ -462,9 +454,8 @@ elif page == "🔍 Error Analysis":
     show_fig("27_error_heatmap_vm_hour.png", "Heatmap: VM × Hour of Day mean error")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 6 — Performance (Latency & Throughput)
-# ══════════════════════════════════════════════════════════════════════════════
+
+# PAGE 6 — Performance (Latency & Throughput):
 elif page == "⚡ Performance":
     st.title("⚡ Inference Latency & Throughput")
     st.markdown(
@@ -522,9 +513,8 @@ elif page == "⚡ Performance":
     """)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 7 — Auto-Scaling Simulation
-# ══════════════════════════════════════════════════════════════════════════════
+
+# PAGE 7 — Auto-Scaling Simulation:
 elif page == "🚀 Auto-Scaling":
     st.title("🚀 Auto-Scaling Simulation")
     st.markdown(
@@ -572,7 +562,7 @@ elif page == "🚀 Auto-Scaling":
                 st.metric("Scaling Events",  data["n_total_events"])
                 st.metric("Mean Instances",  f"{data['mean_instances']:.2f}")
 
-        # Highlight improvement
+        # Highlight improvement:
         reactive_viols   = vm_sim["reactive"]["n_sla_violations"]
         predictive_viols = vm_sim["predictive"]["n_sla_violations"]
         improvement      = reactive_viols - predictive_viols
@@ -622,9 +612,8 @@ elif page == "🚀 Auto-Scaling":
     """)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 8 — Live Prediction
-# ══════════════════════════════════════════════════════════════════════════════
+
+# PAGE 8 — Live Prediction:
 elif page == "🔮 Live Prediction":
     st.title("🔮 Live CPU Prediction (XGBoost)")
     st.markdown(
@@ -713,9 +702,8 @@ elif page == "🔮 Live Prediction":
     plt.close()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 9 — Report
-# ══════════════════════════════════════════════════════════════════════════════
+
+# PAGE 9 — Report:
 elif page == "📋 Report":
     st.title("📋 Project Summary Report")
 

@@ -21,14 +21,14 @@ from typing import List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 BASE_DIR     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS_DIR   = os.path.join(BASE_DIR, "models")
 REPORTS_DIR  = os.path.join(BASE_DIR, "reports")
 MODEL_PATH   = os.path.join(MODELS_DIR, "xgboost_model.pkl")
 METRICS_PATH = os.path.join(REPORTS_DIR, "xgboost_metrics.json")
 
-# ── Feature names (must match exactly what XGBoost was trained on) ─────────────
+# Feature names (must match exactly what XGBoost was trained on):
 FEATURE_COLS_RAW = [
     "CPU usage [MHZ]", "Memory usage [KB]",
     "Disk read throughput [KB/s]", "Disk write throughput [KB/s]",
@@ -48,19 +48,18 @@ FEATURE_COLS_RAW = [
 ]
 
 def sanitize_col(name: str) -> str:
-    """XGBoost 3.x does not allow [ ] < in feature names."""
     return name.replace("[", "(").replace("]", ")").replace("<", "_")
 
 SAFE_FEATURE_COLS = [sanitize_col(c) for c in FEATURE_COLS_RAW]
 
-# ── Load Model on Startup ──────────────────────────────────────────────────────
+# Load Model on Startup:
 print("[API] Loading XGBoost model...")
 if not os.path.exists(MODEL_PATH):
     raise RuntimeError(f"Model not found at {MODEL_PATH}. Run src/06_train_xgboost.py first.")
 
 model = joblib.load(MODEL_PATH)
 
-# Load metrics if available
+# Load metrics if available:
 xgb_metrics = {}
 if os.path.exists(METRICS_PATH):
     with open(METRICS_PATH) as f:
@@ -69,7 +68,7 @@ if os.path.exists(METRICS_PATH):
 print(f"[API] Model loaded. MAE={xgb_metrics.get('MAE', 'N/A')}%  "
       f"R²={xgb_metrics.get('R2', 'N/A')}")
 
-# ── FastAPI App ────────────────────────────────────────────────────────────────
+# FastAPI App:
 app = FastAPI(
     title="Cloud Workload Prediction API",
     description=(
@@ -80,14 +79,14 @@ app = FastAPI(
 )
 
 
-# ── Pydantic Schemas ───────────────────────────────────────────────────────────
+# Pydantic Schemas:
 class PredictionInput(BaseModel):
     """
     Feature vector for a single prediction.
     All CPU values are in %, memory in KB, throughput in KB/s.
     Time features (hour, day_of_week, etc.) can be computed from the timestamp.
     """
-    # Raw resource metrics
+    # Raw resource metrics:
     cpu_usage_mhz: float          = Field(..., ge=0,    description="Current CPU usage in MHz")
     memory_usage_kb: float        = Field(..., ge=0,    description="Memory usage in KB")
     disk_read_kbps: float         = Field(..., ge=0,    description="Disk read throughput KB/s")
@@ -96,23 +95,23 @@ class PredictionInput(BaseModel):
     net_send_kbps: float          = Field(..., ge=0,    description="Network transmitted KB/s")
     memory_usage_pct: float       = Field(..., ge=0, le=100, description="Memory usage %")
 
-    # Time features (compute from datetime before calling API)
+    # Time features (compute from datetime before calling API):
     hour: int                     = Field(..., ge=0, le=23,  description="Hour of day (0-23)")
     day_of_week: int              = Field(..., ge=0, le=6,   description="Day of week (0=Mon, 6=Sun)")
     is_weekend: int               = Field(..., ge=0, le=1,   description="1 if Saturday/Sunday, else 0")
     day_of_month: int             = Field(..., ge=1, le=31,  description="Day of month (1-31)")
     week: int                     = Field(..., ge=1, le=53,  description="ISO week number (1-53)")
 
-    # Cyclical time encodings (sin/cos of hour and day_of_week)
+    # Cyclical time encodings (sin/cos of hour and day_of_week):
     hour_sin: float               = Field(..., description="sin(2π × hour / 24)")
     hour_cos: float               = Field(..., description="cos(2π × hour / 24)")
     dow_sin: float                = Field(..., description="sin(2π × day_of_week / 7)")
     dow_cos: float                = Field(..., description="cos(2π × day_of_week / 7)")
 
-    # Derived resource features
+    # Derived resource features:
     cpu_util_ratio: float         = Field(..., ge=0, le=1,   description="CPU usage MHz / provisioned MHz")
 
-    # Lag features — CPU usage [%] at previous timesteps
+    # Lag features — CPU usage [%] at previous timesteps:
     cpu_lag1: float               = Field(..., ge=0, le=100, description="CPU % at t-1  (5 min ago)")
     cpu_lag2: float               = Field(..., ge=0, le=100, description="CPU % at t-2  (10 min ago)")
     cpu_lag3: float               = Field(..., ge=0, le=100, description="CPU % at t-3  (15 min ago)")
@@ -122,26 +121,26 @@ class PredictionInput(BaseModel):
     cpu_lag9: float               = Field(..., ge=0, le=100, description="CPU % at t-9  (45 min ago)")
     cpu_lag12: float              = Field(..., ge=0, le=100, description="CPU % at t-12 (60 min ago)")
 
-    # Rolling statistics — 15-minute window
+    # Rolling statistics — 15-minute window:
     roll_mean_15min: float        = Field(..., ge=0, le=100)
     roll_std_15min: float         = Field(..., ge=0)
     roll_max_15min: float         = Field(..., ge=0, le=100)
 
-    # Rolling statistics — 30-minute window
+    # Rolling statistics — 30-minute window:
     roll_mean_30min: float        = Field(..., ge=0, le=100)
     roll_std_30min: float         = Field(..., ge=0)
     roll_max_30min: float         = Field(..., ge=0, le=100)
 
-    # Rolling statistics — 60-minute window
+    # Rolling statistics — 60-minute window:
     roll_mean_60min: float        = Field(..., ge=0, le=100)
     roll_std_60min: float         = Field(..., ge=0)
     roll_max_60min: float         = Field(..., ge=0, le=100)
 
-    # Momentum features
+    # Momentum features:
     cpu_diff1: float              = Field(..., description="CPU change from t-1 to t (5-min delta)")
     cpu_diff2: float              = Field(..., description="CPU change from t-2 to t (10-min delta)")
 
-    # Aggregate resource features
+    # Aggregate resource features:
     mem_pressure: float           = Field(..., ge=0, le=1, description="Memory usage % / 100")
     net_total_throughput: float   = Field(..., ge=0, description="Total network KB/s (recv + send)")
     disk_total_throughput: float  = Field(..., ge=0, description="Total disk KB/s (read + write)")
@@ -168,9 +167,8 @@ class BatchPredictionOutput(BaseModel):
     throughput_per_sec: float
 
 
-# ── Helper: Convert input to model DataFrame ───────────────────────────────────
+# Helper: Convert input to model DataFrame:
 def input_to_dataframe(sample: PredictionInput) -> pd.DataFrame:
-    """Map Pydantic model fields → sanitized feature names expected by XGBoost."""
     raw_values = {
         "CPU usage (MHZ)":                     sample.cpu_usage_mhz,
         "Memory usage (KB)":                    sample.memory_usage_kb,
@@ -215,7 +213,7 @@ def input_to_dataframe(sample: PredictionInput) -> pd.DataFrame:
     return pd.DataFrame([raw_values])
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
+# Routes:
 @app.get("/")
 def root():
     return {
@@ -229,7 +227,7 @@ def root():
 
 @app.get("/health")
 def health_check():
-    """Returns 200 if the API is running and the model is loaded."""
+    #Returns 200 if the API is running and the model is loaded.
     return {
         "status": "healthy",
         "model_loaded": model is not None,
@@ -240,8 +238,7 @@ def health_check():
 
 @app.get("/models")
 def list_models():
-    """Returns available models and their test-set performance metrics."""
-    # Load all metric files if available
+    # Load all metric files if available:
     metrics = {"XGBoost": xgb_metrics}
 
     lstm_path = os.path.join(REPORTS_DIR, "lstm_metrics.json")
@@ -264,12 +261,9 @@ def list_models():
 
 @app.post("/predict", response_model=PredictionOutput)
 def predict(data: PredictionInput):
-    """
-    Predict CPU usage 30 minutes ahead for a single VM data point.
-
-    Provide the current engineered feature vector (lags, rolling stats, time features).
-    Returns predicted CPU % clamped to [0, 100].
-    """
+    # Predict CPU usage 30 minutes ahead for a single VM data point.
+    # Provide the current engineered feature vector (lags, rolling stats, time features).
+    # Returns predicted CPU % clamped to [0, 100].
     try:
         X = input_to_dataframe(data)
         t0 = time.perf_counter()
@@ -292,12 +286,9 @@ def predict(data: PredictionInput):
 
 @app.post("/predict/batch", response_model=BatchPredictionOutput)
 def predict_batch(data: BatchPredictionInput):
-    """
-    Predict CPU usage 30 minutes ahead for multiple VM data points in one call.
-
-    More efficient than calling /predict repeatedly for large batches.
-    Accepts up to 10,000 samples per request.
-    """
+    # Predict CPU usage 30 minutes ahead for multiple VM data points in one call.
+    # More efficient than calling /predict repeatedly for large batches.
+    # Accepts up to 10,000 samples per request.
     try:
         frames = [input_to_dataframe(s) for s in data.samples]
         X = pd.concat(frames, ignore_index=True)
@@ -319,7 +310,7 @@ def predict_batch(data: BatchPredictionInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Run directly (development only) ────────────────────────────────────────────
+# Run (development only):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

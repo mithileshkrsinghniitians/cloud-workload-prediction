@@ -10,11 +10,11 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# ── Reproducibility ────────────────────────────────────────────────────────────
+# Reproducibility:
 torch.manual_seed(42)
 np.random.seed(42)
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_PATH   = os.path.join(PROJECT_ROOT, "data", "processed", "combined_features.csv")
 MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
@@ -23,7 +23,7 @@ METRICS_PATH = os.path.join(PROJECT_ROOT, "reports", "lstm_metrics.json")
 os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(FIGURES_DIR, exist_ok=True)
 
-# ── Config ─────────────────────────────────────────────────────────────────────
+# Config:
 SEQ_LEN          = 12          # 12 × 5 min = 60 min lookback
 FORECAST_HORIZON = 6           # predict 30 min ahead
 BATCH_SIZE       = 256
@@ -53,7 +53,7 @@ print(f"\n  Device : {DEVICE}")
 print(f"  Seq len: {SEQ_LEN} steps ({SEQ_LEN*5} min lookback)")
 print(f"  Horizon: {FORECAST_HORIZON} steps (30 min ahead)")
 
-# ── 1. Load & Split (same regime split as XGBoost) ────────────────────────────
+# 1. Load & Split (same regime split as XGBoost):
 df = pd.read_csv(INPUT_PATH, parse_dates=["datetime"])
 df = df.sort_values(["vm_id", "datetime"]).reset_index(drop=True)
 
@@ -65,7 +65,7 @@ test_df    = busy_df[busy_df["datetime"] >= test_start]
 
 print(f"\n[1] Train: {len(train_df):,} rows  |  Test: {len(test_df):,} rows")
 
-# ── 2. Scale Features ─────────────────────────────────────────────────────────
+# 2. Scale Features:
 scaler = MinMaxScaler()
 train_reset = train_df.reset_index(drop=True)
 test_reset  = test_df.reset_index(drop=True)
@@ -76,13 +76,13 @@ test_scaled  = test_reset[FEATURE_COLS].copy()
 train_scaled[FEATURE_COLS] = scaler.fit_transform(train_reset[FEATURE_COLS])
 test_scaled[FEATURE_COLS]  = scaler.transform(test_reset[FEATURE_COLS])
 
-# Save scaler for inference
+# Save scaler for inference:
 joblib.dump(scaler, os.path.join(MODELS_DIR, "lstm_scaler.pkl"))
 print("[2] Features scaled (MinMaxScaler). Scaler saved.")
 
-# ── 3. Build Sequences ────────────────────────────────────────────────────────
+# 3. Build Sequences:
 def build_sequences(df_scaled, df_orig, vm_ids):
-    """Build (X, y) sequence pairs per VM to avoid cross-VM contamination."""
+    # Build (X, y) sequence pairs per VM to avoid cross-VM contamination.
     X_list, y_list = [], []
     target_idx = FEATURE_COLS.index(TARGET_COL)
 
@@ -106,7 +106,7 @@ print(f"[3] Sequences built:")
 print(f"    X_train: {X_train.shape}  y_train: {y_train.shape}")
 print(f"    X_test : {X_test.shape}   y_test : {y_test.shape}")
 
-# ── 4. Dataset & DataLoader ───────────────────────────────────────────────────
+# 4. Dataset & DataLoader:
 class TimeSeriesDataset(Dataset):
     def __init__(self, X, y):
         self.X = torch.from_numpy(X)
@@ -124,7 +124,7 @@ train_loader = DataLoader(TimeSeriesDataset(X_train, y_train),
 test_loader  = DataLoader(TimeSeriesDataset(X_test, y_test),
                           batch_size=BATCH_SIZE, shuffle=False)
 
-# ── 5. LSTM Model ─────────────────────────────────────────────────────────────
+# 5. LSTM Model:
 class LSTMForecaster(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, dropout):
         super().__init__()
@@ -160,7 +160,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
 criterion = nn.MSELoss()
 
-# ── 6. Training Loop ──────────────────────────────────────────────────────────
+# 6. Training Loop:
 print(f"\n[5] Training for up to {EPOCHS} epochs (early stop patience=8)...")
 print(f"    {'Epoch':>6}  {'Train Loss':>12}  {'Val Loss':>10}  {'LR':>10}")
 print("    " + "-" * 45)
@@ -171,7 +171,7 @@ PATIENCE = 8
 train_losses, val_losses = [], []
 
 for epoch in range(1, EPOCHS + 1):
-    # Train
+    # Train:
     model.train()
     running_loss = 0.0
     for xb, yb in train_loader:
@@ -185,7 +185,7 @@ for epoch in range(1, EPOCHS + 1):
         running_loss += loss.item() * len(xb)
     train_loss = running_loss / len(train_loader.dataset)
 
-    # Validate
+    # Validate:
     model.eval()
     val_loss_sum = 0.0
     with torch.no_grad():
@@ -203,7 +203,7 @@ for epoch in range(1, EPOCHS + 1):
     if epoch % 5 == 0 or epoch == 1:
         print(f"    {epoch:>6}  {train_loss:>12.4f}  {val_loss:>10.4f}  {current_lr:>10.2e}")
 
-    # Early stopping
+    # Early stopping:
     if val_loss < best_val_loss:
         best_val_loss = val_loss
         patience_counter = 0
@@ -214,7 +214,7 @@ for epoch in range(1, EPOCHS + 1):
             print(f"\n    Early stopping at epoch {epoch} (best val loss: {best_val_loss:.4f})")
             break
 
-# ── 7. Evaluate with Best Weights ─────────────────────────────────────────────
+# 7. Evaluate with Best Weights:
 model.load_state_dict(torch.load(os.path.join(MODELS_DIR, "lstm_best.pt"),
                                  map_location=DEVICE))
 model.eval()
@@ -242,7 +242,7 @@ print(f"    RMSE  : {rmse:.4f} %")
 print(f"    R²    : {r2:.4f}")
 print(f"    sMAPE : {smape:.2f}%")
 
-# ── 8. Loss Curve ─────────────────────────────────────────────────────────────
+# 8. Loss Curve:
 fig, ax = plt.subplots(figsize=(10, 4))
 ax.plot(train_losses, label="Train Loss (MSE)", color="steelblue")
 ax.plot(val_losses,   label="Val Loss (MSE)",   color="tomato")
@@ -255,7 +255,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "09_lstm_loss_curve.png"))
 plt.close()
 print("[7] Saved: 09_lstm_loss_curve.png")
 
-# ── 9. Actual vs Predicted ────────────────────────────────────────────────────
+# 9. Actual vs Predicted:
 plot_n = min(500, len(y_true))
 fig, ax = plt.subplots(figsize=(14, 5))
 ax.plot(range(plot_n), y_true[:plot_n], label="Actual",         color="steelblue",  linewidth=1)
@@ -269,14 +269,14 @@ plt.savefig(os.path.join(FIGURES_DIR, "10_lstm_actual_vs_predicted.png"))
 plt.close()
 print("[8] Saved: 10_lstm_actual_vs_predicted.png")
 
-# ── 10. Save Metrics ──────────────────────────────────────────────────────────
+# 10. Save Metrics:
 metrics = {"MAE": round(float(mae), 4), "RMSE": round(float(rmse), 4),
            "R2": round(float(r2), 4), "sMAPE": round(float(smape), 2)}
 with open(METRICS_PATH, "w") as f:
     json.dump(metrics, f, indent=2)
 print("[9] Metrics saved → reports/lstm_metrics.json")
 
-# Save predictions for use in evaluation script (avoids MPS/CPU divergence)
+# Save predictions for use in evaluation script (avoids MPS/CPU divergence):
 preds_df = pd.DataFrame({"y_true": y_true, "y_pred": y_pred})
 preds_path = os.path.join(MODELS_DIR, "lstm_test_predictions.csv")
 preds_df.to_csv(preds_path, index=False)
