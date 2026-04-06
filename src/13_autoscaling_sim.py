@@ -4,7 +4,7 @@ warnings.filterwarnings("ignore")
 import matplotlib
 matplotlib.use("Agg")
 
-import xgboost as xgb   # import first on macOS to avoid segfault
+import xgboost as xgb
 import joblib
 
 import pandas as pd
@@ -14,7 +14,7 @@ import json
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_PATH   = os.path.join(PROJECT_ROOT, "data", "processed", "combined_features.csv")
 MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
@@ -25,7 +25,7 @@ os.makedirs(FIGURES_DIR, exist_ok=True)
 FORECAST_HORIZON = 6   # 30 min ahead (XGBoost prediction horizon)
 STEP_MINUTES     = 5   # each row = 5 minutes
 
-# ── Auto-scaler Configuration ──────────────────────────────────────────────────
+# Auto-scaler Configuration:
 SCALE_UP_THRESHOLD   = 70.0   # CPU % above which we scale up
 SCALE_DOWN_THRESHOLD = 30.0   # CPU % below which we scale down
 MIN_INSTANCES        = 1      # minimum instances in the cluster
@@ -55,7 +55,7 @@ def sanitize_col(name):
     return name.replace("[", "(").replace("]", ")").replace("<", "_")
 
 
-# ── Auto-Scaler Simulation ─────────────────────────────────────────────────────
+# Auto-Scaler Simulation:
 def simulate_autoscaler(cpu_actual, cpu_signal, label, scale_up_thresh, scale_down_thresh):
     """
     Simulate a simple threshold-based auto-scaler.
@@ -80,7 +80,7 @@ def simulate_autoscaler(cpu_actual, cpu_signal, label, scale_up_thresh, scale_do
     cooldown_remaining = 0
 
     for t in range(n):
-        # track instances
+        # track instances:
         instances[t] = current_instances
 
         # SLA check: actual CPU / instances should stay < SLA threshold
@@ -89,12 +89,12 @@ def simulate_autoscaler(cpu_actual, cpu_signal, label, scale_up_thresh, scale_do
         if effective_cpu > SLA_VIOLATION_THRESH:
             sla_violations.append(t)
 
-        # cooldown check
+        # cooldown check:
         if cooldown_remaining > 0:
             cooldown_remaining -= 1
             continue
 
-        # scaling decision based on the chosen signal
+        # scaling decision based on the chosen signal:
         signal = cpu_signal[t]
 
         if signal > scale_up_thresh and current_instances < MAX_INSTANCES:
@@ -144,7 +144,7 @@ print(f"  Instance range      : {MIN_INSTANCES}–{MAX_INSTANCES}")
 print(f"  Cooldown            : {COOLDOWN_STEPS} steps ({COOLDOWN_STEPS*STEP_MINUTES} min)")
 print(f"  SLA violation       : effective CPU > {SLA_VIOLATION_THRESH}%")
 
-# ── 1. Load Data & Build Test Set ─────────────────────────────────────────────
+# 1. Load Data & Build Test Set:
 df = pd.read_csv(INPUT_PATH, parse_dates=["datetime"])
 df = df.sort_values(["vm_id", "datetime"]).reset_index(drop=True)
 
@@ -161,14 +161,14 @@ test_df    = busy_df[busy_df["datetime"] >= test_start].reset_index(drop=True)
 
 print(f"\n[1] Test set: {len(test_df):,} rows  ({test_start.date()} → {busy_end.date()})")
 
-# ── 2. XGBoost Predictions ────────────────────────────────────────────────────
+# 2. XGBoost Predictions:
 xgb_model = joblib.load(os.path.join(MODELS_DIR, "xgboost_model.pkl"))
 
 safe_map  = {c: sanitize_col(c) for c in XGB_FEATURE_COLS if c in test_df.columns}
 avail_cols = [c for c in XGB_FEATURE_COLS if c in test_df.columns]
 X_test    = test_df[avail_cols].rename(columns={c: sanitize_col(c) for c in avail_cols})
 
-# Align with model's expected features
+# Align with model's expected features:
 model_features = xgb_model.get_booster().feature_names
 X_test = X_test.reindex(columns=model_features, fill_value=0)
 
@@ -177,7 +177,7 @@ cpu_actual = test_df["CPU usage [%]"].values
 
 print(f"[2] XGBoost predictions generated: {len(xgb_pred):,} samples")
 
-# ── 3. Pick One VM for Detailed Simulation (most dynamic = highest CPU std) ───
+# 3. Pick One VM for Detailed Simulation (most dynamic = highest CPU std):
 vm_ids = test_df["vm_id"].unique()
 vm_variability = {
     vm: test_df[test_df["vm_id"] == vm]["CPU usage [%]"].std()
@@ -194,19 +194,19 @@ vm_times   = test_df[vm_mask]["datetime"].values
 
 print(f"    VM {sim_vm} test samples: {len(vm_actual):,}")
 
-# ── 4. Run Three Simulations ───────────────────────────────────────────────────
+# 4. Run Three Simulations:
 print("\n[4] Running simulations...")
 
-# Strategy 1: No scaling (fixed 1 instance — worst case baseline)
+# Strategy 1: No scaling (fixed 1 instance — worst case baseline):
 no_scale_result = simulate_autoscaler(
     cpu_actual=vm_actual,
-    cpu_signal=np.zeros(len(vm_actual)),   # signal always < threshold → never scale
+    cpu_signal=np.zeros(len(vm_actual)),
     label="No Scaling (1 instance)",
-    scale_up_thresh=200,   # effectively never triggers
+    scale_up_thresh=200,
     scale_down_thresh=-1,
 )
 
-# Strategy 2: Reactive — decide based on current observed CPU
+# Strategy 2: Reactive — decide based on current observed CPU:
 reactive_result = simulate_autoscaler(
     cpu_actual=vm_actual,
     cpu_signal=vm_actual,
@@ -215,7 +215,7 @@ reactive_result = simulate_autoscaler(
     scale_down_thresh=SCALE_DOWN_THRESHOLD,
 )
 
-# Strategy 3: Predictive — decide based on XGBoost 30-min forecast
+# Strategy 3: Predictive — decide based on XGBoost 30-min forecast:
 predictive_result = simulate_autoscaler(
     cpu_actual=vm_actual,
     cpu_signal=vm_pred,
@@ -224,7 +224,7 @@ predictive_result = simulate_autoscaler(
     scale_down_thresh=SCALE_DOWN_THRESHOLD,
 )
 
-# ── 5. Print Comparison ───────────────────────────────────────────────────────
+# 5. Print Comparison:
 print(f"\n[5] Simulation Results for VM {sim_vm}:")
 print(f"\n  {'Strategy':<35}  {'Scale↑':>6}  {'Scale↓':>6}  {'SLA Viol':>9}  "
       f"{'Viol %':>7}  {'Mean Inst':>9}  {'Inst-min':>8}")
@@ -235,7 +235,7 @@ for res in [no_scale_result, reactive_result, predictive_result]:
           f"{res['n_sla_violations']:>9}  {res['sla_violation_rate_pct']:>6.1f}%  "
           f"{res['mean_instances']:>9.2f}  {res['total_instance_minutes']:>8,}")
 
-# ── 6. Figure 1: Simulation Timeline ─────────────────────────────────────────
+# 6. Figure 1: Simulation Timeline:
 n_plot = min(288, len(vm_actual))   # first 24 hours
 t_idx  = range(n_plot)
 
@@ -244,16 +244,16 @@ fig, axes = plt.subplots(3, 1, figsize=(16, 12), sharex=True)
 for ax, res, color in zip(axes,
                           [no_scale_result, reactive_result, predictive_result],
                           ["gray", "steelblue", "seagreen"]):
-    # CPU actual
+    # CPU actual:
     ax.fill_between(t_idx, 0, vm_actual[:n_plot], alpha=0.2, color="tomato", label="Actual CPU")
     ax.plot(t_idx, vm_actual[:n_plot], color="tomato", linewidth=0.8, alpha=0.8)
 
-    # XGBoost predicted (only for predictive)
+    # XGBoost predicted (only for predictive):
     if "Predictive" in res["label"]:
         ax.plot(t_idx, vm_pred[:n_plot], color="darkorange", linewidth=1,
                 linestyle="--", alpha=0.7, label="XGBoost Forecast")
 
-    # Instance count (right y-axis)
+    # Instance count (right y-axis):
     ax2 = ax.twinx()
     ax2.step(t_idx, res["instances"][:n_plot], color=color, linewidth=2,
              where="post", label="Instances")
@@ -261,7 +261,7 @@ for ax, res, color in zip(axes,
     ax2.set_yticks(range(MIN_INSTANCES, MAX_INSTANCES + 1))
     ax2.set_ylabel("Instances", color=color)
 
-    # SLA violations in the plotted range
+    # SLA violations in the plotted range:
     viol_in_range = [v for v in res["sla_violations"] if v < n_plot]
     if viol_in_range:
         ax.scatter(viol_in_range, vm_actual[viol_in_range],
@@ -285,7 +285,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "28_autoscaling_simulation.png"))
 plt.close()
 print("\n[6] Saved: 28_autoscaling_simulation.png")
 
-# ── 7. Figure 2: Comparison Bar Charts ────────────────────────────────────────
+# 7. Figure 2: Comparison Bar Charts:
 strategies   = ["No Scaling", "Reactive", "Predictive"]
 sla_viols    = [no_scale_result["n_sla_violations"],
                 reactive_result["n_sla_violations"],
@@ -300,7 +300,7 @@ colors       = ["gray", "steelblue", "seagreen"]
 
 fig, axes = plt.subplots(1, 3, figsize=(14, 5))
 
-# SLA violations
+# SLA violations:
 bars = axes[0].bar(strategies, sla_viols, color=colors, edgecolor="white")
 axes[0].set_title("SLA Violations\n(lower is better)")
 axes[0].set_ylabel("Count")
@@ -308,7 +308,7 @@ for bar, val in zip(bars, sla_viols):
     axes[0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3,
                  str(val), ha="center", va="bottom", fontsize=11, fontweight="bold")
 
-# Scaling events (cost proxy)
+# Scaling events (cost proxy):
 bars = axes[1].bar(strategies, scale_events, color=colors, edgecolor="white")
 axes[1].set_title("Total Scaling Events\n(fewer = lower ops cost)")
 axes[1].set_ylabel("Count")
@@ -316,7 +316,7 @@ for bar, val in zip(bars, scale_events):
     axes[1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
                  str(val), ha="center", va="bottom", fontsize=11, fontweight="bold")
 
-# Mean instances (resource cost)
+# Mean instances (resource cost):
 bars = axes[2].bar(strategies, mean_inst, color=colors, edgecolor="white")
 axes[2].set_title("Mean Instances Running\n(fewer = lower resource cost)")
 axes[2].set_ylabel("Instances")
@@ -331,7 +331,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "29_autoscaling_comparison.png"))
 plt.close()
 print("[7] Saved: 29_autoscaling_comparison.png")
 
-# ── 8. Also Run on ALL VMs combined ───────────────────────────────────────────
+# 8. Also Run on ALL VMs combined:
 print("\n[8] Running simulation on all VMs combined...")
 
 all_reactive   = simulate_autoscaler(cpu_actual, cpu_actual, "Reactive (all VMs)",
@@ -345,7 +345,7 @@ for res in [all_reactive, all_predictive]:
     print(f"    {res['label']:<30}  {res['n_sla_violations']:>9}  "
           f"{res['sla_violation_rate_pct']:>6.1f}%  {res['n_total_events']:>14}")
 
-# ── 9. Save Report ────────────────────────────────────────────────────────────
+# 9. Save Report:
 report = {
     "config": {
         "scale_up_threshold_pct":   SCALE_UP_THRESHOLD,
@@ -387,7 +387,7 @@ with open(report_path, "w") as f:
     json.dump(report, f, indent=2)
 print("[9] Saved: reports/autoscaling_simulation.json")
 
-# ── 10. Final Summary ─────────────────────────────────────────────────────────
+# 10. Final Summary:
 sla_reduction = (reactive_result["n_sla_violations"] - predictive_result["n_sla_violations"])
 sla_reduction_pct = (reactive_result["sla_violation_rate_pct"] -
                      predictive_result["sla_violation_rate_pct"])

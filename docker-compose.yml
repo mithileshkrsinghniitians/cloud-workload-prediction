@@ -8,16 +8,12 @@
 #   docker-compose up --build        # build and start both services
 #   docker-compose up -d             # run in background
 #   docker-compose down              # stop and remove containers
-#
-# AWS S3 (optional):
-#   Set S3_BUCKET_NAME and AWS credentials as environment variables
-#   before running, or fill in the .env section below.
 
 version: "3.9"
 
 services:
 
-  # ── FastAPI Prediction API ──────────────────────────────────────────────────
+  # FastAPI Prediction API:
   api:
     build:
       context: .
@@ -26,13 +22,13 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Mount models and reports so API can read trained artifacts
+      # Mount models and reports so API can read trained artifacts:
       - ./models:/app/models:ro
       - ./reports:/app/reports:ro
       - ./data:/app/data:ro
     environment:
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-cloud-workload-prediction-nci}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-eu-west-1}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
     restart: unless-stopped
@@ -43,7 +39,7 @@ services:
       retries: 3
       start_period: 10s
 
-  # ── Streamlit Dashboard ─────────────────────────────────────────────────────
+  # Streamlit Dashboard:
   dashboard:
     build:
       context: .
@@ -52,7 +48,7 @@ services:
     ports:
       - "8501:8501"
     volumes:
-      # Mount all data, models and reports for the dashboard to read
+      # Mount all data, models and reports for the dashboard to read:
       - ./data:/app/data:ro
       - ./models:/app/models:ro
       - ./reports:/app/reports:ro

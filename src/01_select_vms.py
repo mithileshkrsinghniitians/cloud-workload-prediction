@@ -41,11 +41,11 @@ print(f"VMs with interesting patterns: {len(good_vms)}")
 print(f"\nTop 10 most dynamic VMs:")
 print(good_vms.head(10).to_string(index=False))
 
-# Save selected VM IDs
+# Save selected VM IDs:
 selected_vms = good_vms.head(10)["vm_id"].tolist()
-print(f"\n✅ Selected VM IDs: {selected_vms}")
+print(f"\n Selected VM IDs: {selected_vms}")
 
-# Save the selection for later use
+# Save the selection for later use:
 os.makedirs(os.path.join(PROJECT_ROOT, "data"), exist_ok=True)
 with open(os.path.join(PROJECT_ROOT, "data", "selected_vms.txt"), "w") as f:
     for vm in selected_vms:

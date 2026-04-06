@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import xgboost as xgb
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_PATH   = os.path.join(PROJECT_ROOT, "data", "processed", "combined_features.csv")
 MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
@@ -37,20 +37,20 @@ FEATURE_COLS = [
 ]
 
 def sanitize_col(name):
-    """Remove characters XGBoost 3.x disallows in feature names: [ ] <"""
+    # Remove characters XGBoost 3.x disallows in feature names: [ ] <
     return name.replace("[", "(").replace("]", ")").replace("<", "_")
 
 print("=" * 60)
 print("PHASE 6a — XGBoost Model Training")
 print("=" * 60)
 
-# ── 1. Load ────────────────────────────────────────────────────────────────────
+# 1. Load:
 df = pd.read_csv(INPUT_PATH, parse_dates=["datetime"])
 df = df.sort_values(["vm_id", "datetime"]).reset_index(drop=True)
 print(f"\n[1] Loaded: {df.shape[0]:,} rows × {df.shape[1]} columns")
 
-# ── 2. Create Target — CPU 30 min ahead ───────────────────────────────────────
-# Shift within each VM so we don't bleed across VM boundaries
+# 2. Create Target — CPU 30 min ahead:
+# Shift within each VM so we don't bleed across VM boundaries.
 df["target"] = (
     df.groupby("vm_id")["CPU usage [%]"]
     .shift(-FORECAST_HORIZON)
@@ -59,7 +59,7 @@ df = df.dropna(subset=["target"]).reset_index(drop=True)
 print(f"[2] Target = CPU usage [%] +{FORECAST_HORIZON} steps (30 min ahead).")
 print(f"    Rows after target creation: {len(df):,}")
 
-# ── 3. Train / Test Split — within busy period only ───────────────────────────
+# 3. Train / Test Split — within busy period only:
 # The dataset has a regime change: busy Aug 12–Sep 1, idle from Sep 2 onward.
 # To get a fair same-regime evaluation, train on first 3 weeks and test on
 # the final week of the busy period (Aug 26 – Sep 1).
@@ -70,7 +70,7 @@ busy_df = df[df["datetime"] < busy_end].reset_index(drop=True)
 train   = busy_df[busy_df["datetime"] <  test_start].reset_index(drop=True)
 test    = busy_df[busy_df["datetime"] >= test_start].reset_index(drop=True)
 
-# Sanitize column names for XGBoost 3.x (no [ ] < allowed)
+# Sanitize column names for XGBoost 3.x (no [ ] < allowed):
 SAFE_COLS = {c: sanitize_col(c) for c in FEATURE_COLS}
 train = train.rename(columns=SAFE_COLS)
 test  = test.rename(columns=SAFE_COLS)
@@ -82,7 +82,7 @@ X_test,  y_test  = test[SAFE_FEATURE_COLS],  test["target"]
 print(f"\n[3] Train/Test split (80/20 time-based per VM):")
 print(f"    Train: {len(X_train):,} rows  |  Test: {len(X_test):,} rows")
 
-# ── 4. Train XGBoost ──────────────────────────────────────────────────────────
+# 4. Train XGBoost:
 params = dict(
     n_estimators     = 1000,
     learning_rate    = 0.05,
@@ -111,14 +111,14 @@ model.fit(
 )
 print(f"    Best iteration: {model.best_iteration}")
 
-# ── 5. Evaluate ───────────────────────────────────────────────────────────────
+# 5. Evaluate:
 y_pred = model.predict(X_test)
 y_pred = np.clip(y_pred, 0, 100)
 
 mae  = mean_absolute_error(y_test, y_pred)
 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 r2   = r2_score(y_test, y_pred)
-# sMAPE: symmetric, handles near-zero values gracefully
+# sMAPE: symmetric, handles near-zero values gracefully.
 smape = np.mean(2 * np.abs(y_test - y_pred) /
                 (np.abs(y_test) + np.abs(y_pred) + 1e-8)) * 100
 
@@ -128,7 +128,7 @@ print(f"    RMSE  : {rmse:.4f} %")
 print(f"    R²    : {r2:.4f}")
 print(f"    sMAPE : {smape:.2f}%")
 
-# ── 6. Feature Importance ─────────────────────────────────────────────────────
+# 6. Feature Importance:
 importance = pd.Series(model.feature_importances_, index=SAFE_FEATURE_COLS)
 top20 = importance.nlargest(20)
 
@@ -141,7 +141,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "06_xgb_feature_importance.png"))
 plt.close()
 print("[6] Saved: 06_xgb_feature_importance.png")
 
-# ── 7. Prediction vs Actual Plot (one VM) ─────────────────────────────────────
+# 7. Prediction vs Actual Plot (one VM):
 sample_vm = test["vm_id"].iloc[0]
 vm_test   = test[test["vm_id"] == sample_vm].copy()
 vm_pred   = model.predict(vm_test[SAFE_FEATURE_COLS])
@@ -161,7 +161,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "07_xgb_actual_vs_predicted.png"))
 plt.close()
 print("[7] Saved: 07_xgb_actual_vs_predicted.png")
 
-# ── 8. Residual Plot ──────────────────────────────────────────────────────────
+# 8. Residual Plot:
 residuals = y_test.values - y_pred
 
 fig, axes = plt.subplots(1, 2, figsize=(13, 5))
@@ -181,7 +181,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "08_xgb_residuals.png"))
 plt.close()
 print("[8] Saved: 08_xgb_residuals.png")
 
-# ── 9. Save Model & Metrics ───────────────────────────────────────────────────
+# 9. Save Model & Metrics:
 model_path = os.path.join(MODELS_DIR, "xgboost_model.pkl")
 joblib.dump(model, model_path)
 print(f"[9] Model saved → models/xgboost_model.pkl")

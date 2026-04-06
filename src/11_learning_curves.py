@@ -4,7 +4,7 @@ warnings.filterwarnings("ignore")
 import matplotlib
 matplotlib.use("Agg")
 
-import xgboost as xgb   # import first on macOS to avoid segfault
+import xgboost as xgb
 import joblib
 
 import pandas as pd
@@ -15,7 +15,7 @@ import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_PATH   = os.path.join(PROJECT_ROOT, "data", "processed", "combined_features.csv")
 FIGURES_DIR  = os.path.join(PROJECT_ROOT, "reports", "figures")
@@ -24,7 +24,7 @@ os.makedirs(FIGURES_DIR, exist_ok=True)
 
 FORECAST_HORIZON = 6   # 30 min ahead
 
-# XGBoost feature columns (same as Phase 6a)
+# XGBoost feature columns (same as Phase 6a):
 FEATURE_COLS = [
     "CPU usage [MHZ]", "Memory usage [KB]",
     "Disk read throughput [KB/s]", "Disk write throughput [KB/s]",
@@ -43,7 +43,7 @@ FEATURE_COLS = [
     "mem_pressure", "net_total_throughput", "disk_total_throughput",
 ]
 
-# Fractions of training data to test (20% → 100%)
+# Fractions of training data to test (20% → 100%):
 FRACTIONS = [0.20, 0.40, 0.60, 0.80, 1.00]
 
 def sanitize_col(name):
@@ -67,18 +67,18 @@ print("=" * 60)
 print("\nTraining XGBoost on 20% / 40% / 60% / 80% / 100% of training data")
 print("Evaluating on the same fixed test set each time.\n")
 
-# ── 1. Load Data ───────────────────────────────────────────────────────────────
+# 1. Load Data:
 df = pd.read_csv(INPUT_PATH, parse_dates=["datetime"])
 df = df.sort_values(["vm_id", "datetime"]).reset_index(drop=True)
 
-# Create target (CPU 30 min ahead, per VM to avoid bleed)
+# Create target (CPU 30 min ahead, per VM to avoid bleed):
 df["target"] = (
     df.groupby("vm_id")["CPU usage [%]"]
     .shift(-FORECAST_HORIZON)
 )
 df = df.dropna(subset=["target"]).reset_index(drop=True)
 
-# Same train/test split as Phase 6a
+# Same train/test split as Phase 6a:
 busy_end   = pd.Timestamp("2013-09-02")
 test_start = pd.Timestamp("2013-08-26")
 
@@ -86,7 +86,7 @@ busy_df = df[df["datetime"] < busy_end].reset_index(drop=True)
 train   = busy_df[busy_df["datetime"] <  test_start].reset_index(drop=True)
 test    = busy_df[busy_df["datetime"] >= test_start].reset_index(drop=True)
 
-# Sanitize column names for XGBoost 3.x
+# Sanitize column names for XGBoost 3.x:
 SAFE_COLS = {c: sanitize_col(c) for c in FEATURE_COLS}
 train = train.rename(columns=SAFE_COLS)
 test  = test.rename(columns=SAFE_COLS)
@@ -99,7 +99,7 @@ print(f"[1] Full training set: {full_train_size:,} rows")
 print(f"    Fixed test set   : {len(test):,} rows")
 print(f"    Fractions to test: {FRACTIONS}\n")
 
-# ── 2. Naive Baseline ─────────────────────────────────────────────────────────
+# 2. Naive Baseline:
 # Naive: predict current CPU (lag1) as the forecast — simplest possible baseline
 # This gives us something to compare the learning curves against
 naive_pred = test[sanitize_col("CPU usage [%]_lag1")].values
@@ -108,7 +108,7 @@ print(f"[2] Naive baseline (lag1 as prediction):")
 print(f"    MAE={naive_metrics['MAE']:.4f}%  RMSE={naive_metrics['RMSE']:.4f}%  "
       f"R²={naive_metrics['R2']:.4f}")
 
-# ── 3. XGBoost config (same as Phase 6a) ─────────────────────────────────────
+# 3. XGBoost config (same as Phase 6a):
 xgb_params = dict(
     n_estimators     = 1000,
     learning_rate    = 0.05,
@@ -125,7 +125,7 @@ xgb_params = dict(
     n_jobs           = -1,
 )
 
-# ── 4. Run Learning Curve Experiments ─────────────────────────────────────────
+# 4. Run Learning Curve Experiments:
 results = []
 print(f"[3] Running {len(FRACTIONS)} experiments...\n")
 print(f"  {'Fraction':>9}  {'Train Rows':>11}  {'MAE':>8}  {'RMSE':>8}  {'R²':>8}  "
@@ -136,12 +136,12 @@ for frac in FRACTIONS:
     # Take a chronological slice of the training data
     # (using the last N rows preserves temporal ordering and avoids data leakage)
     n_rows = max(1, int(full_train_size * frac))
-    train_subset = train.iloc[:n_rows]   # first N rows (earliest to latest)
+    train_subset = train.iloc[:n_rows]
 
     X_tr = train_subset[SAFE_FEATURE_COLS].values
     y_tr = train_subset["target"].values
 
-    # Train model
+    # Train model:
     model = xgb.XGBRegressor(**xgb_params)
     t_start = time.perf_counter()
     model.fit(
@@ -151,7 +151,7 @@ for frac in FRACTIONS:
     )
     train_time = time.perf_counter() - t_start
 
-    # Evaluate on fixed test set
+    # Evaluate on fixed test set:
     y_pred = np.clip(model.predict(X_test), 0, 100)
     metrics = compute_metrics(y_test, y_pred)
 
@@ -166,7 +166,7 @@ for frac in FRACTIONS:
         **metrics,
     })
 
-# ── 5. Plot: MAE and RMSE vs Training Set Size ─────────────────────────────────
+# 5. Plot: MAE and RMSE vs Training Set Size:
 train_rows = [r["train_rows"] for r in results]
 maes       = [r["MAE"]   for r in results]
 rmses      = [r["RMSE"]  for r in results]
@@ -176,7 +176,7 @@ times      = [r["train_time_sec"] for r in results]
 
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-# MAE
+# MAE:
 ax = axes[0, 0]
 ax.plot(train_rows, maes, "o-", color="steelblue", linewidth=2, markersize=7, label="XGBoost")
 ax.axhline(naive_metrics["MAE"], color="gray", linestyle="--", linewidth=1.2, label=f"Naive baseline ({naive_metrics['MAE']:.2f}%)")
@@ -189,7 +189,7 @@ for x, y in zip(train_rows, maes):
     ax.annotate(f"{y:.2f}", (x, y), textcoords="offset points", xytext=(0, 8),
                 ha="center", fontsize=8)
 
-# RMSE
+# RMSE:
 ax = axes[0, 1]
 ax.plot(train_rows, rmses, "s-", color="tomato", linewidth=2, markersize=7, label="XGBoost")
 ax.axhline(naive_metrics["RMSE"], color="gray", linestyle="--", linewidth=1.2, label=f"Naive baseline ({naive_metrics['RMSE']:.2f}%)")
@@ -202,7 +202,7 @@ for x, y in zip(train_rows, rmses):
     ax.annotate(f"{y:.2f}", (x, y), textcoords="offset points", xytext=(0, 8),
                 ha="center", fontsize=8)
 
-# R²
+# R²:
 ax = axes[1, 0]
 ax.plot(train_rows, r2s, "^-", color="seagreen", linewidth=2, markersize=7, label="XGBoost")
 ax.axhline(naive_metrics["R2"], color="gray", linestyle="--", linewidth=1.2, label=f"Naive baseline ({naive_metrics['R2']:.3f})")
@@ -216,7 +216,7 @@ for x, y in zip(train_rows, r2s):
     ax.annotate(f"{y:.3f}", (x, y), textcoords="offset points", xytext=(0, 8),
                 ha="center", fontsize=8)
 
-# Training time
+# Training time:
 ax = axes[1, 1]
 fracs_pct = [f * 100 for f in FRACTIONS]
 ax.bar(fracs_pct, times, color="mediumpurple", width=12, edgecolor="white")
@@ -234,9 +234,9 @@ plt.savefig(os.path.join(FIGURES_DIR, "21_learning_curves.png"))
 plt.close()
 print("\n[4] Saved: 21_learning_curves.png")
 
-# ── 6. Plot: Fraction on x-axis (cleaner for report) ─────────────────────────
+# 6. Plot: Fraction on x-axis (cleaner for report):
 fig, ax = plt.subplots(figsize=(9, 5))
-ax2 = ax.twinx()   # second y-axis for R²
+ax2 = ax.twinx()
 
 ln1 = ax.plot(fracs_pct, maes,  "o-", color="steelblue", linewidth=2, markersize=7, label="MAE (%)")
 ln2 = ax.plot(fracs_pct, rmses, "s-", color="tomato",    linewidth=2, markersize=7, label="RMSE (%)")
@@ -263,7 +263,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "22_learning_curves_combined.png"))
 plt.close()
 print("[5] Saved: 22_learning_curves_combined.png")
 
-# ── 7. Save Results to JSON ───────────────────────────────────────────────────
+# 7. Save Results to JSON:
 report = {
     "description": "XGBoost learning curves — trained on varying fractions of training data",
     "fixed_test_set_size": len(test),
@@ -275,7 +275,7 @@ with open(report_path, "w") as f:
     json.dump(report, f, indent=2)
 print("[6] Saved: reports/learning_curves.json")
 
-# ── 8. Final Summary ──────────────────────────────────────────────────────────
+# 8. Final Summary:
 print("\n" + "=" * 60)
 print("Learning Curves Complete")
 print("=" * 60)

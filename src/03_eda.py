@@ -5,7 +5,7 @@ import matplotlib.dates as mdates
 import seaborn as sns
 import os
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH    = os.path.join(PROJECT_ROOT, "data", "cleaned", "combined_raw.csv")
 FIGURES_DIR  = os.path.join(PROJECT_ROOT, "reports", "figures")
@@ -14,7 +14,7 @@ os.makedirs(FIGURES_DIR, exist_ok=True)
 plt.rcParams.update({"figure.dpi": 120, "figure.figsize": (12, 5)})
 sns.set_theme(style="whitegrid")
 
-# ── 1. Load ────────────────────────────────────────────────────────────────────
+# 1. Load:
 print("=" * 60)
 print("PHASE 3 — Exploratory Data Analysis")
 print("=" * 60)
@@ -22,11 +22,11 @@ print("=" * 60)
 df = pd.read_csv(DATA_PATH)
 print(f"\n[1] Loaded: {df.shape[0]:,} rows × {df.shape[1]} columns")
 
-# Convert timestamp from ms → datetime
+# Convert timestamp from ms → datetime:
 df["datetime"] = pd.to_datetime(df["Timestamp [ms]"], unit="s")
 df = df.sort_values(["vm_id", "datetime"]).reset_index(drop=True)
 
-# ── 2. Basic Info ──────────────────────────────────────────────────────────────
+# 2. Basic Info:
 print("\n[2] Columns & dtypes:")
 print(df.dtypes.to_string())
 
@@ -34,7 +34,7 @@ print(f"\n[3] VMs in dataset : {df['vm_id'].nunique()}")
 print(f"    Date range     : {df['datetime'].min()}  →  {df['datetime'].max()}")
 print(f"    Duration       : {(df['datetime'].max() - df['datetime'].min()).days} days")
 
-# ── 3. Missing Values ──────────────────────────────────────────────────────────
+# 3. Missing Values:
 print("\n[4] Missing values per column:")
 missing = df.isnull().sum()
 missing_pct = (missing / len(df) * 100).round(2)
@@ -42,7 +42,7 @@ missing_report = pd.DataFrame({"count": missing, "pct": missing_pct})
 print(missing_report[missing_report["count"] > 0].to_string()
       if missing_report["count"].sum() > 0 else "    None — dataset is complete")
 
-# ── 4. Descriptive Statistics ──────────────────────────────────────────────────
+# 4. Descriptive Statistics:
 numeric_cols = [
     "CPU usage [%]", "CPU usage [MHZ]", "CPU capacity provisioned [MHZ]",
     "Memory usage [KB]", "Memory capacity provisioned [KB]",
@@ -53,7 +53,7 @@ numeric_cols = [
 print("\n[5] Descriptive statistics:")
 print(df[numeric_cols].describe().round(2).to_string())
 
-# ── 5. CPU Usage Distribution ──────────────────────────────────────────────────
+# 5. CPU Usage Distribution:
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
 axes[0].hist(df["CPU usage [%]"], bins=80, color="steelblue", edgecolor="white", linewidth=0.3)
@@ -72,7 +72,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "01_cpu_distribution.png"))
 plt.close()
 print("\n[6] Saved: 01_cpu_distribution.png")
 
-# ── 6. Per-VM CPU Statistics ───────────────────────────────────────────────────
+# 6. Per-VM CPU Statistics:
 vm_stats = df.groupby("vm_id")["CPU usage [%]"].agg(
     mean="mean", std="std", min="min", max="max", median="median"
 ).round(2)
@@ -101,7 +101,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "02_per_vm_cpu_stats.png"))
 plt.close()
 print("[8] Saved: 02_per_vm_cpu_stats.png")
 
-# ── 7. Time-Series CPU for Sample VMs ─────────────────────────────────────────
+# 7. Time-Series CPU for Sample VMs:
 sample_vms = df["vm_id"].value_counts().head(5).index.tolist()
 
 fig, axes = plt.subplots(len(sample_vms), 1, figsize=(14, 3 * len(sample_vms)), sharex=False)
@@ -117,7 +117,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "03_cpu_timeseries_sample_vms.png"))
 plt.close()
 print("[9] Saved: 03_cpu_timeseries_sample_vms.png")
 
-# ── 8. Temporal Patterns — Hourly & Daily ─────────────────────────────────────
+# 8. Temporal Patterns — Hourly & Daily:
 df["hour"]       = df["datetime"].dt.hour
 df["day_of_week"] = df["datetime"].dt.day_name()
 
@@ -144,7 +144,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "04_temporal_patterns.png"))
 plt.close()
 print("[10] Saved: 04_temporal_patterns.png")
 
-# ── 9. Correlation Heatmap ─────────────────────────────────────────────────────
+# 9. Correlation Heatmap:
 corr = df[numeric_cols].corr()
 
 fig, ax = plt.subplots(figsize=(11, 9))
@@ -157,7 +157,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "05_correlation_heatmap.png"))
 plt.close()
 print("[11] Saved: 05_correlation_heatmap.png")
 
-# ── 10. Outlier Summary (IQR method on CPU) ────────────────────────────────────
+# 10. Outlier Summary (IQR method on CPU):
 Q1  = df["CPU usage [%]"].quantile(0.25)
 Q3  = df["CPU usage [%]"].quantile(0.75)
 IQR = Q3 - Q1
@@ -170,7 +170,7 @@ print(f"     Q1={Q1:.2f}  Q3={Q3:.2f}  IQR={IQR:.2f}")
 print(f"     Lower fence={lower:.2f}  Upper fence={upper:.2f}")
 print(f"     Outlier rows: {len(outliers):,} ({len(outliers)/len(df)*100:.2f}%)")
 
-# ── 11. EDA Summary ────────────────────────────────────────────────────────────
+# 11. EDA Summary:
 print("\n" + "=" * 60)
 print("EDA SUMMARY")
 print("=" * 60)
@@ -183,4 +183,4 @@ print(f"  CPU usage [%] range: {df['CPU usage [%]'].min():.2f}% → {df['CPU usa
 print(f"  Missing values     : {df[numeric_cols].isnull().sum().sum()}")
 print(f"  CPU outliers       : {len(outliers):,} rows ({len(outliers)/len(df)*100:.2f}%)")
 print(f"\n  Figures saved to   : {FIGURES_DIR}")
-print("\n✅ EDA complete!")
+print("\n EDA complete!")

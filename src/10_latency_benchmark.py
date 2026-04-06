@@ -17,7 +17,7 @@ import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths:
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_PATH   = os.path.join(PROJECT_ROOT, "data", "processed", "combined_features.csv")
 MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
@@ -30,7 +30,7 @@ SEQ_LEN          = 12
 DEVICE           = torch.device("cpu")
 N_REPEATS        = 5   # repeat each benchmark to get stable average
 
-# ── XGBoost feature columns (same as training) ────────────────────────────────
+# XGBoost feature columns (same as training):
 XGB_FEATURE_COLS = [
     "CPU usage [MHZ]", "Memory usage [KB]",
     "Disk read throughput [KB/s]", "Disk write throughput [KB/s]",
@@ -49,7 +49,7 @@ XGB_FEATURE_COLS = [
     "mem_pressure", "net_total_throughput", "disk_total_throughput",
 ]
 
-# ── LSTM feature columns (same as training) ────────────────────────────────────
+# LSTM feature columns (same as training):
 LSTM_FEATURE_COLS = [
     "CPU usage [%]", "CPU usage [MHZ]", "Memory usage [%]",
     "Disk read throughput [KB/s]", "Disk write throughput [KB/s]",
@@ -62,7 +62,7 @@ def sanitize_col(name):
     return name.replace("[", "(").replace("]", ")").replace("<", "_")
 
 
-# ── LSTM architecture (must match training) ────────────────────────────────────
+# LSTM architecture (must match training):
 class LSTMForecaster(nn.Module):
     def __init__(self, input_size, hidden_size=64, num_layers=2, dropout=0.2):
         super().__init__()
@@ -88,7 +88,7 @@ print("=" * 60)
 print("PHASE 10 — Latency & Throughput Benchmark")
 print("=" * 60)
 
-# ── 1. Load Data & Prepare Test Set ───────────────────────────────────────────
+# 1. Load Data & Prepare Test Set:
 df = pd.read_csv(INPUT_PATH, parse_dates=["datetime"])
 df = df.sort_values(["vm_id", "datetime"]).reset_index(drop=True)
 
@@ -100,7 +100,7 @@ test_df    = busy_df[busy_df["datetime"] >= test_start].reset_index(drop=True)
 
 print(f"\n[1] Test set loaded: {len(test_df):,} rows")
 
-# ── 2. Prepare XGBoost Test Data ──────────────────────────────────────────────
+# 2. Prepare XGBoost Test Data:
 test_with_target = test_df.copy()
 test_with_target["target"] = (
     test_with_target.groupby("vm_id")["CPU usage [%]"]
@@ -112,7 +112,7 @@ safe_map    = {c: sanitize_col(c) for c in XGB_FEATURE_COLS}
 X_test_xgb  = test_with_target[XGB_FEATURE_COLS].rename(columns=safe_map).values
 print(f"[2] XGBoost test matrix: {X_test_xgb.shape}")
 
-# ── 3. Prepare LSTM Test Data ─────────────────────────────────────────────────
+# 3. Prepare LSTM Test Data:
 scaler = joblib.load(os.path.join(MODELS_DIR, "lstm_scaler.pkl"))
 
 test_scaled = test_df[LSTM_FEATURE_COLS].copy()
@@ -129,7 +129,7 @@ for vm_id in vm_ids:
 X_test_lstm = np.array(X_lstm_list, dtype=np.float32)
 print(f"[3] LSTM test sequences: {X_test_lstm.shape}")
 
-# ── 4. Load Models ────────────────────────────────────────────────────────────
+# 4. Load Models:
 xgb_model = joblib.load(os.path.join(MODELS_DIR, "xgboost_model.pkl"))
 
 lstm_model = LSTMForecaster(input_size=len(LSTM_FEATURE_COLS))
@@ -140,7 +140,7 @@ lstm_model.eval()
 
 print("[4] Models loaded: XGBoost + LSTM")
 
-# ── 5. Benchmark Function ─────────────────────────────────────────────────────
+# 5. Benchmark Function:
 def benchmark_model(name, predict_fn, data, batch_sizes, n_repeats=N_REPEATS):
     """
     Run prediction across different batch sizes and measure:
@@ -154,14 +154,14 @@ def benchmark_model(name, predict_fn, data, batch_sizes, n_repeats=N_REPEATS):
     print("  " + "-" * 47)
 
     for bs in batch_sizes:
-        # slice data to batch size (cap at available samples)
+        # slice data to batch size (cap at available samples):
         batch = data[:min(bs, len(data))]
         actual_bs = len(batch)
 
-        # warm-up run (JIT / caching effects)
+        # warm-up run (JIT / caching effects):
         _ = predict_fn(batch)
 
-        # timed runs
+        # timed runs:
         times = []
         for _ in range(n_repeats):
             t0 = time.perf_counter()
@@ -185,7 +185,7 @@ def benchmark_model(name, predict_fn, data, batch_sizes, n_repeats=N_REPEATS):
     return results
 
 
-# ── 6. Define Prediction Functions ────────────────────────────────────────────
+# 6. Define Prediction Functions:
 safe_feature_names = [sanitize_col(c) for c in XGB_FEATURE_COLS]
 
 def xgb_predict(X_np):
@@ -197,8 +197,8 @@ def lstm_predict(X_np):
     with torch.no_grad():
         return lstm_model(tensor).numpy()
 
-# ── 7. Run Benchmarks ─────────────────────────────────────────────────────────
-# batch sizes from 1 (real-time inference) to full test set (batch scoring)
+# 7. Run Benchmarks:
+# batch sizes from 1 (real-time inference) to full test set (batch scoring).
 BATCH_SIZES = [1, 10, 50, 100, 500, 1000, 5000, len(X_test_xgb)]
 
 print("\n[5] Running XGBoost latency benchmark...")
@@ -207,7 +207,7 @@ xgb_results = benchmark_model("XGBoost", xgb_predict, X_test_xgb, BATCH_SIZES)
 print("\n[6] Running LSTM latency benchmark...")
 lstm_results = benchmark_model("LSTM", lstm_predict, X_test_lstm, BATCH_SIZES)
 
-# ── 8. Single-sample Latency Summary ─────────────────────────────────────────
+# 8. Single-sample Latency Summary:
 xgb_single  = xgb_results[0]   # batch_size = 1
 lstm_single = lstm_results[0]
 
@@ -217,7 +217,7 @@ print(f"    XGBoost : {xgb_single['latency_ms']:.3f} ms   "
 print(f"    LSTM    : {lstm_single['latency_ms']:.3f} ms   "
       f"({1000/lstm_single['latency_ms']:.0f} predictions/sec)")
 
-# ── 9. Plot: Throughput vs Batch Size ─────────────────────────────────────────
+# 9. Plot: Throughput vs Batch Size:
 xgb_bs  = [r["batch_size"] for r in xgb_results]
 xgb_thr = [r["throughput_per_sec"] for r in xgb_results]
 xgb_lat = [r["ms_per_sample"] for r in xgb_results]
@@ -228,7 +228,7 @@ lstm_lat = [r["ms_per_sample"] for r in lstm_results]
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-# Throughput
+# Throughput:
 axes[0].plot(xgb_bs,  xgb_thr,  "o-", color="steelblue",  label="XGBoost", linewidth=2)
 axes[0].plot(lstm_bs, lstm_thr,  "s-", color="darkorange", label="LSTM",    linewidth=2)
 axes[0].set_xscale("log")
@@ -238,7 +238,7 @@ axes[0].set_title("Throughput vs Batch Size")
 axes[0].legend()
 axes[0].grid(True, alpha=0.3)
 
-# Latency per sample
+# Latency per sample:
 axes[1].plot(xgb_bs,  xgb_lat,  "o-", color="steelblue",  label="XGBoost", linewidth=2)
 axes[1].plot(lstm_bs, lstm_lat,  "s-", color="darkorange", label="LSTM",    linewidth=2)
 axes[1].set_xscale("log")
@@ -254,7 +254,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "19_latency_throughput.png"))
 plt.close()
 print("[8] Saved: 19_latency_throughput.png")
 
-# ── 10. Plot: Single-sample bar comparison ────────────────────────────────────
+# 10. Plot: Single-sample bar comparison:
 fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
 models      = ["XGBoost", "LSTM"]
@@ -282,7 +282,7 @@ plt.savefig(os.path.join(FIGURES_DIR, "20_single_sample_latency.png"))
 plt.close()
 print("[9] Saved: 20_single_sample_latency.png")
 
-# ── 11. Save Results to JSON ──────────────────────────────────────────────────
+# 11. Save Results to JSON:
 report = {
     "benchmark_config": {
         "n_repeats": N_REPEATS,
@@ -310,7 +310,7 @@ with open(report_path, "w") as f:
     json.dump(report, f, indent=2)
 print("[10] Saved: reports/latency_benchmark.json")
 
-# ── 12. Final Summary ─────────────────────────────────────────────────────────
+# 12. Final Summary:
 print("\n" + "=" * 60)
 print("Latency Benchmark Complete")
 print("=" * 60)
