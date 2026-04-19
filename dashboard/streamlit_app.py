@@ -104,15 +104,15 @@ st.sidebar.divider()
 page = st.sidebar.radio(
     "Navigate",
     [
-        "🏠 Overview",
-        "📊 EDA",
-        "🤖 Model Results",
-        "📈 Learning Curves",
-        "🔍 Error Analysis",
-        "⚡ Performance",
-        "🚀 Auto-Scaling",
-        "🔮 Live Prediction",
-        "📋 Report",
+        "Overview",
+        "EDA",
+        "Model Results",
+        "Learning Curves",
+        "Error Analysis",
+        "Performance",
+        "Auto-Scaling",
+        "Live Prediction",
+        "Report",
     ],
 )
 
@@ -121,7 +121,7 @@ st.sidebar.caption("Cloud ML Project · NCI · 2026")
 
 
 # PAGE 1 — Overview:
-if page == "🏠 Overview":
+if page == "Overview":
     st.title("☁️ Cloud Workload Prediction Dashboard")
     st.markdown(
         """
@@ -182,8 +182,8 @@ if page == "🏠 Overview":
 
 
 # PAGE 2 — EDA:
-elif page == "📊 EDA":
-    st.title("📊 Exploratory Data Analysis")
+elif page == "EDA":
+    st.title("Exploratory Data Analysis")
 
     df = load_cleaned()
     vm_ids = sorted(df["vm_id"].unique())
@@ -240,8 +240,8 @@ elif page == "📊 EDA":
 
 
 # PAGE 3 — Model Results:
-elif page == "🤖 Model Results":
-    st.title("🤖 Model Training Results")
+elif page == "Model Results":
+    st.title("Model Training Results")
 
     metrics = load_json("model_comparison.json")
     if not metrics:
@@ -297,8 +297,8 @@ elif page == "🤖 Model Results":
 
 
 # PAGE 4 — Learning Curves:
-elif page == "📈 Learning Curves":
-    st.title("📈 Learning Curves — XGBoost")
+elif page == "Learning Curves":
+    st.title("Learning Curves — XGBoost")
     st.markdown(
         """
         XGBoost was trained on **20%, 40%, 60%, 80% and 100%** of the training data,
@@ -359,8 +359,8 @@ elif page == "📈 Learning Curves":
 
 
 # PAGE 5 — Error Analysis:
-elif page == "🔍 Error Analysis":
-    st.title("🔍 Comprehensive Error Analysis")
+elif page == "Error Analysis":
+    st.title("Comprehensive Error Analysis")
     st.markdown(
         "Deep-dive into **where and why** the XGBoost model makes errors — "
         "broken down by VM, CPU regime, hour of day, day of week, and regime transitions."
@@ -456,8 +456,8 @@ elif page == "🔍 Error Analysis":
 
 
 # PAGE 6 — Performance (Latency & Throughput):
-elif page == "⚡ Performance":
-    st.title("⚡ Inference Latency & Throughput")
+elif page == "Performance":
+    st.title("Inference Latency & Throughput")
     st.markdown(
         "Measures how fast each model can produce predictions in **real-time** (single sample) "
         "and **batch** scenarios. Critical for cloud deployment SLA design."
@@ -515,8 +515,8 @@ elif page == "⚡ Performance":
 
 
 # PAGE 7 — Auto-Scaling Simulation:
-elif page == "🚀 Auto-Scaling":
-    st.title("🚀 Auto-Scaling Simulation")
+elif page == "Auto-Scaling":
+    st.title("Auto-Scaling Simulation")
     st.markdown(
         """
         Simulates **three scaling strategies** on the test period to show the business value
@@ -568,7 +568,7 @@ elif page == "🚀 Auto-Scaling":
         improvement      = reactive_viols - predictive_viols
         if improvement > 0:
             st.success(
-                f"✅ Predictive scaling reduced SLA violations by **{improvement}** "
+                f"Predictive scaling reduced SLA violations by **{improvement}** "
                 f"compared to reactive — that's "
                 f"**{vm_sim['reactive']['sla_violation_rate_pct'] - vm_sim['predictive']['sla_violation_rate_pct']:.1f}% fewer violations**."
             )
@@ -580,12 +580,12 @@ elif page == "🚀 Auto-Scaling":
         all_sim = sim["all_vms_simulation"]
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown("**🔵 Reactive (all VMs)**")
+            st.markdown("**Reactive (all VMs)**")
             st.metric("SLA Violations", all_sim["reactive"]["n_sla_violations"])
             st.metric("Violation Rate", f"{all_sim['reactive']['sla_violation_rate_pct']:.1f}%")
             st.metric("Scaling Events", all_sim["reactive"]["n_total_events"])
         with c2:
-            st.markdown("**🟢 Predictive (all VMs)**")
+            st.markdown("**Predictive (all VMs)**")
             st.metric("SLA Violations", all_sim["predictive"]["n_sla_violations"])
             st.metric("Violation Rate", f"{all_sim['predictive']['sla_violation_rate_pct']:.1f}%")
             st.metric("Scaling Events", all_sim["predictive"]["n_total_events"])
@@ -614,8 +614,8 @@ elif page == "🚀 Auto-Scaling":
 
 
 # PAGE 8 — Live Prediction:
-elif page == "🔮 Live Prediction":
-    st.title("🔮 Live CPU Prediction (XGBoost)")
+elif page == "Live Prediction":
+    st.title("Live CPU Prediction (XGBoost)")
     st.markdown(
         "Select a VM and a point in time from the test period. "
         "The XGBoost model will predict **CPU usage 30 minutes ahead**."
@@ -633,13 +633,101 @@ elif page == "🔮 Live Prediction":
 
     vm_ids = sorted(test_df["vm_id"].unique())
 
+    # ── Session state init ──────────────────────────────────────────────────
+    if "demo_vm" not in st.session_state:
+        st.session_state.demo_vm   = None
+    if "demo_time" not in st.session_state:
+        st.session_state.demo_time = None
+
+    # ── Quick Demo Scenarios ────────────────────────────────────────────────
+    st.subheader("🎯 Quick Demo Scenarios")
+    st.caption("Click any scenario to jump directly to that moment — shows the model in action.")
+
+    DEMO_SCENARIOS = [
+        ("VM 208\nPerfect Prediction\nAug 29, 00:03",        208, "2013-08-29 00:03"),
+        ("VM 215\nNear-Zero Error\nAug 30, 08:53",           215, "2013-08-30 08:53"),
+        ("VM 208\nBurst Miss\nAug 27, 14:32",                208, "2013-08-27 14:32"),
+        ("VM 216\nFull Day Story\nAug 28, 13:03",            216, "2013-08-28 13:03"),
+        ("VM 216\nIdle Over-Predict\nAug 26, 06:37",        216, "2013-08-26 06:37"),
+    ]
+
+    demo_cols = st.columns(5)
+    for col, (label, vm, tstr) in zip(demo_cols, DEMO_SCENARIOS):
+        with col:
+            if st.button(label, use_container_width=True):
+                st.session_state.demo_vm   = vm
+                st.session_state.demo_time = tstr
+
+    st.divider()
+
+    # ── VM selector ─────────────────────────────────────────────────────────
     col1, col2 = st.columns([1, 2])
     with col1:
-        selected_vm = st.selectbox("VM ID", vm_ids)
-        vm_data     = test_df[test_df["vm_id"] == selected_vm].reset_index(drop=True)
-        n_steps     = len(vm_data)
-        step_idx    = st.slider("Time step", 0, n_steps - 1, n_steps // 2)
-        row         = vm_data.iloc[step_idx]
+        # Pre-select VM from demo scenario if set
+        default_vm_idx = (
+            vm_ids.index(st.session_state.demo_vm)
+            if st.session_state.demo_vm in vm_ids
+            else 0
+        )
+        selected_vm = st.selectbox("VM ID", vm_ids, index=default_vm_idx)
+
+        # If VM changed manually, clear demo time
+        if st.session_state.demo_vm != selected_vm:
+            st.session_state.demo_time = None
+            st.session_state.demo_vm   = selected_vm
+
+        vm_data = test_df[test_df["vm_id"] == selected_vm].reset_index(drop=True)
+        n_steps = len(vm_data)
+
+        # ── Date + Time picker ───────────────────────────────────────────────
+        st.markdown("**Navigate to exact timestamp:**")
+        available_dates = sorted(vm_data["datetime"].dt.date.unique())
+
+        # Determine default date from demo scenario or middle of test
+        if st.session_state.demo_time:
+            demo_dt       = pd.Timestamp(st.session_state.demo_time)
+            default_date  = demo_dt.date()
+        else:
+            default_date  = available_dates[len(available_dates) // 2]
+
+        default_date = default_date if default_date in available_dates else available_dates[0]
+        picked_date  = st.selectbox(
+            "Date",
+            available_dates,
+            index=available_dates.index(default_date),
+            format_func=lambda d: d.strftime("%a %d %b %Y"),
+        )
+
+        # Filter timestamps for that day
+        day_data    = vm_data[vm_data["datetime"].dt.date == picked_date].reset_index(drop=True)
+        day_times   = day_data["datetime"].dt.strftime("%H:%M:%S").tolist()
+
+        # Determine default time
+        if st.session_state.demo_time and demo_dt.date() == picked_date:
+            demo_time_str = demo_dt.strftime("%H:%M:%S")
+            # Find closest
+            closest_idx = (
+                day_data["datetime"]
+                .sub(pd.Timestamp(st.session_state.demo_time))
+                .abs()
+                .idxmin()
+            )
+            default_time_idx = int(day_data.index.get_loc(closest_idx)) if closest_idx in day_data.index else 0
+        else:
+            default_time_idx = len(day_times) // 2
+
+        default_time_idx = min(default_time_idx, len(day_times) - 1)
+        picked_time = st.selectbox(
+            "Time (UTC)",
+            day_times,
+            index=default_time_idx,
+        )
+
+        # Find step_idx in full vm_data matching picked date+time
+        picked_dt = pd.Timestamp(f"{picked_date} {picked_time}")
+        time_diffs = (vm_data["datetime"] - picked_dt).abs()
+        step_idx   = int(time_diffs.idxmin())
+        row        = vm_data.iloc[step_idx]
 
         st.markdown(f"**Selected time:** `{row['datetime']}`")
         st.markdown(f"**Current CPU:** `{row['CPU usage [%]']:.1f}%`")
@@ -704,8 +792,8 @@ elif page == "🔮 Live Prediction":
 
 
 # PAGE 9 — Report:
-elif page == "📋 Report":
-    st.title("📋 Project Summary Report")
+elif page == "Report":
+    st.title("Project Summary Report")
 
     metrics = load_json("model_comparison.json")
     lc      = load_json("learning_curves.json")
