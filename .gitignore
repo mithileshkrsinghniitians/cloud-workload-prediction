@@ -39,3 +39,6 @@ mlruns/
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+
+# Source Code.zip file
+Cloud_ML_Source_Code.zip

@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+
+  api:
+    image: 093452070667.dkr.ecr.us-east-1.amazonaws.com/cwp-api:latest
+    ports:
+      - "80:8000"
+    restart: unless-stopped
+
+  dashboard:
+    image: 093452070667.dkr.ecr.us-east-1.amazonaws.com/cwp-dashboard:latest
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+    restart: unless-stopped
